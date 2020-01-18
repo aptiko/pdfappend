@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+"""
+pdfappend - Append one or more PDFs at the end of another
+
+pdfappend base_document.pdf [document_to_append.pdf ...]
+
+If no document to append is specified, "tmp.pdf" is assumed.  The base
+document is replaced in place and tmp.pdf (or the specified documents to
+append) are deleted.
+"""
+
+import os
+import sys
+import textwrap
+
+from PyPDF2 import PdfFileReader, PdfFileWriter
+
+
+def pdf_append(argv):
+    try:
+        _pdf_append(argv)
+    except (IndexError, FileNotFoundError) as e:
+        sys.stdout.write(str(e) + "\n")
+        sys.exit(1)
+
+
+def _pdf_append(argv):
+    base_document, documents_to_append = _read_cmd_line(argv)
+    _do_append(base_document, documents_to_append)
+
+
+def _read_cmd_line(argv):
+    try:
+        if len(argv) == 2:
+            return argv[1], ["tmp.pdf"]
+        else:
+            return argv[1], argv[2:]
+    except IndexError:
+        _usage_error()
+
+
+def _usage_error():
+    raise IndexError(
+        textwrap.dedent(
+            """\
+            Incorrect number of arguments.
+            Usage: pdfappend base_document.pdf [document_to_append.pdf ...]
+            """
+        )
+    )
+
+
+def _do_append(base_document, documents_to_append):
+    pdf_writer = PdfFileWriter()
+    _append_file(pdf_writer, base_document)
+    for document in documents_to_append:
+        _append_file(pdf_writer, document)
+    with open(base_document, "wb") as f:
+        pdf_writer.write(f)
+    _remove_files(documents_to_append)
+
+
+def _append_file(pdf_writer, filename):
+    pdf_reader = PdfFileReader(filename)
+    for page in range(pdf_reader.getNumPages()):
+        pdf_writer.addPage(pdf_reader.getPage(page))
+
+
+def _remove_files(filenames):
+    for filename in filenames:
+        os.remove(filename)
+
+
+if __name__ == "__main__":
+    pdf_append(sys.argv)
